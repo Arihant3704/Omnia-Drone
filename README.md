@@ -47,7 +47,7 @@ ollama pull moondream
 ### 3. Environment Configuration
 Create or edit your `.env` file in the root directory:
 ```env
-GOOGLE_API_KEY=AIzaSyAju3AGp1EnXZihyNhsw2AWUXGS0hIUJzI
+GOOGLE_API_KEY=
 USE_OLLAMA=true
 OLLAMA_MODEL=qwen2.5:0.5b
 OLLAMA_VISION_MODEL=moondream
