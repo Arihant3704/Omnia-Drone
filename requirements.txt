@@ -1,0 +1,9 @@
+ultralytics
+mavsdk
+google-genai
+opencv-python
+mss
+numpy
+pygame
+python-dotenv
+pyyaml

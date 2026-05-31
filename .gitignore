@@ -1,0 +1,28 @@
+# Virtual environment
+core/visiongpt-env/
+visiongpt-env/
+venv/
+.venv/
+
+# Large model weights
+*.pt
+core/yolov8s-world.pt
+yolov8s-world.pt
+
+# Large video assets (keep source demo files but ignore recordings if preferred, or include them)
+demo_videos/*.mp4
+*.mp4
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local configuration and state
+.env
+/tmp/omnia_*
+
+# Submodules / Sub-repositories
+PX4-Autopilot/
