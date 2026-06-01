@@ -320,7 +320,7 @@ class OmniaPilotPseudoLive:
         self.save_memory()
         logger.info(f"🧠 Reflection & Learning: {reflection_text}")
 
-    def navigate_to_local_xy(self, target_x: float, target_y: float):
+    def navigate_to_local_xy(self, target_x: float, target_y: float, descend_command: str = None):
         import math
         dx, dy = self.get_local_coordinates()
         diff_x = target_x - dx
@@ -350,6 +350,9 @@ class OmniaPilotPseudoLive:
             
             # Move forward
             cmds.append(f"F{round(distance, 2)}")
+            
+        if descend_command:
+            cmds.append(descend_command)
         
         if cmds:
             cmds_str = " ".join(cmds)
@@ -466,7 +469,7 @@ class OmniaPilotPseudoLive:
             )
         return "\n".join(lines)
 
-    def remembr_navigate_to(self, query):
+    def remembr_navigate_to(self, query, original_instruction=""):
         """Navigate to a location the drone remembers seeing something.
         Returns action result string or None if not found."""
         results = self.remembr.query_by_text(query, top_k=1)
@@ -478,8 +481,18 @@ class OmniaPilotPseudoLive:
         target_x = mem["local_xy"]["x"]
         target_y = mem["local_xy"]["y"]
         logger.info(f"🧠 ReMEmbR Navigation: Flying to remembered \"{mem['caption'][:50]}\" at ({target_x:.1f}, {target_y:.1f}) [sim={score:.2f}]")
-        nav_result = self.navigate_to_local_xy(target_x, target_y)
+        
+        descend_cmd = None
+        orig_lower = original_instruction.lower()
+        if "land" in orig_lower:
+            descend_cmd = "LAND"
+        elif "descend" in orig_lower or "down" in orig_lower:
+            descend_cmd = "ALT0.6"
+            
+        nav_result = self.navigate_to_local_xy(target_x, target_y, descend_command=descend_cmd)
         self.alert_message = f"ReMEmbR Nav: Flying to remembered location ({target_x:.1f}, {target_y:.1f})"
+        if descend_cmd:
+            self.alert_message += f" and executing {descend_cmd}"
         return f"Navigating to remembered location: {mem['caption'][:60]} at ({target_x:.1f}, {target_y:.1f}). Nav result: {nav_result}"
 
     async def caption_frame(self, frame):
@@ -1077,7 +1090,7 @@ class OmniaPilotPseudoLive:
                             self.alert_message = f"Found memory: {top_mem['caption'][:40]}"
                             # If they also said "go" or "fly" or "navigate", fly there!
                             if any(word in cleaned_instr for word in ["go", "fly", "navigate", "return"]):
-                                remembr_result = self.remembr_navigate_to(query_term)
+                                remembr_result = self.remembr_navigate_to(query_term, original_instruction=cleaned_instr)
                                 if remembr_result:
                                     self.mission_mode = None
                                     self.mission_phase = "COORDINATE NAV"
@@ -1101,7 +1114,7 @@ class OmniaPilotPseudoLive:
                                 break
                         
                         # First try ReMEmbR semantic vector navigation
-                        remembr_result = self.remembr_navigate_to(search_query)
+                        remembr_result = self.remembr_navigate_to(search_query, original_instruction=cleaned_instr)
                         if remembr_result:
                             self.mission_mode = None
                             self.mission_phase = "COORDINATE NAV"

@@ -26,12 +26,31 @@ def get_window_id(name_pattern):
         
     return None
 
-def arrange_windows():
-    print("Arranging windows side-by-side on DISPLAY=:1...")
+def arrange_all_windows():
+    print("Arranging windows on DISPLAY=:1...")
     os.environ["DISPLAY"] = ":1"
     
     chrome_id = get_window_id("Google-chrome") or get_window_id("Omnia") or get_window_id("Chrome")
-    gazebo_id = get_window_id("gazebo") or get_window_id("Gazebo")
+    
+    # Gzclient is the main Gazebo window
+    gazebo_id = None
+    try:
+        gz_out = subprocess.check_output(["xdotool", "search", "--class", "Gzclient"]).decode().strip()
+        gz_ids = gz_out.split()
+        if gz_ids:
+            gazebo_id = gz_ids[0]
+    except Exception:
+        pass
+        
+    # gazebo (lowercase) is the camera view window
+    image_view_id = None
+    try:
+        cam_out = subprocess.check_output(["xdotool", "search", "--class", "gazebo"]).decode().strip()
+        cam_ids = cam_out.split()
+        if cam_ids:
+            image_view_id = cam_ids[0]
+    except Exception:
+        pass
     
     if chrome_id:
         print(f"Found Google Chrome window: {chrome_id}")
@@ -42,12 +61,20 @@ def arrange_windows():
         print("Warning: Google Chrome window not found!")
         
     if gazebo_id:
-        print(f"Found Gazebo window: {gazebo_id}")
+        print(f"Found Gazebo Main window (Gzclient): {gazebo_id}")
         subprocess.call(["xdotool", "windowactivate", gazebo_id])
         subprocess.call(["xdotool", "windowmove", gazebo_id, "960", "0"])
-        subprocess.call(["xdotool", "windowsize", gazebo_id, "960", "1080"])
+        subprocess.call(["xdotool", "windowsize", gazebo_id, "960", "600"])
     else:
-        print("Warning: Gazebo window not found!")
+        print("Warning: Gazebo Main window (Gzclient) not found!")
+
+    if image_view_id:
+        print(f"Found Gazebo Camera View window: {image_view_id}")
+        subprocess.call(["xdotool", "windowactivate", image_view_id])
+        subprocess.call(["xdotool", "windowmove", image_view_id, "960", "600"])
+        subprocess.call(["xdotool", "windowsize", image_view_id, "960", "480"])
+    else:
+        print("Warning: Gazebo Camera View window not found yet.")
 
 def record_live_flight():
     os.environ["DISPLAY"] = ":1"
@@ -57,7 +84,7 @@ def record_live_flight():
     if os.path.exists(video_path):
         os.remove(video_path)
         
-    arrange_windows()
+    arrange_all_windows()
     time.sleep(2)
     
     print("\n1. Starting ffmpeg screen capture...")
@@ -93,6 +120,7 @@ def record_live_flight():
         casualty_found = False
         
         while time.time() - start_time < 90:
+            arrange_all_windows()
             time.sleep(3)
             # Read remembr db to check if memories were written
             remembr_db_path = "/tmp/omnia_remembr.json"
@@ -116,8 +144,9 @@ def record_live_flight():
             if casualty_found:
                 break
                 
-        # Wait a few more seconds to settle
+        # Wait a few more seconds to settle, and arrange windows one last time to make sure they are correct
         time.sleep(5)
+        arrange_all_windows()
         
         def send_instruction_and_wait(instruction, wait_after_processing=10):
             instruction_file = "/tmp/omnia_user_instruction.json"
@@ -134,6 +163,8 @@ def record_live_flight():
             processed = False
             while time.time() - instr_start < 30:
                 time.sleep(1)
+                # Keep arranging windows in case they got focus or moved
+                arrange_all_windows()
                 if os.path.exists(instruction_file):
                     try:
                         with open(instruction_file, "r") as f:
@@ -148,10 +179,15 @@ def record_live_flight():
                 print(f"   Pilot processed instruction successfully. Sleeping {wait_after_processing}s for drone actions...")
             else:
                 print("   Warning: Instruction processing timed out!")
-            time.sleep(wait_after_processing)
-
-        print("\n3. Sending Semantic Search Navigation Query: 'fly to where you saw the person'...")
-        send_instruction_and_wait("fly to where you saw the person", wait_after_processing=20)
+            
+            # Periodically arrange windows during the wait time
+            wait_start = time.time()
+            while time.time() - wait_start < wait_after_processing:
+                arrange_all_windows()
+                time.sleep(2)
+ 
+        print("\n3. Sending Semantic Search Navigation Query: 'where was the person falling down? go to that location and descend'...")
+        send_instruction_and_wait("where was the person falling down? go to that location and descend", wait_after_processing=25)
         
         print("\n4. Sending second query to confirm ReMEmbR memory search: 'where did you see the person'...")
         send_instruction_and_wait("where did you see the person", wait_after_processing=8)

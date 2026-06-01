@@ -134,9 +134,8 @@ class ReMEmbRMemory:
             self.memories.pop(0)
             self.embeddings = self.embeddings[1:]
 
-        # Auto-save every 10 memories
-        if len(self.memories) % 10 == 0:
-            self._save()
+        # Auto-save on every memory
+        self._save()
 
         logger.info(f"ReMEmbR: Stored memory {mem_id} — \"{caption[:60]}...\" at ({entry['local_xy']['x']:.1f}, {entry['local_xy']['y']:.1f})")
         return mem_id
