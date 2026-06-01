@@ -119,28 +119,43 @@ def record_live_flight():
         # Wait a few more seconds to settle
         time.sleep(5)
         
-        print("\n3. Sending Semantic Search Navigation Query: 'fly to where you saw the person'...")
-        instruction_payload = {
-            "instruction": "fly to where you saw the person",
-            "timestamp": time.time(),
-            "processed": False
-        }
-        with open("/tmp/omnia_user_instruction.json", "w") as f:
-            json.dump(instruction_payload, f)
+        def send_instruction_and_wait(instruction, wait_after_processing=10):
+            instruction_file = "/tmp/omnia_user_instruction.json"
+            payload = {
+                "instruction": instruction,
+                "timestamp": time.time(),
+                "processed": False
+            }
+            with open(instruction_file, "w") as f:
+                json.dump(payload, f)
             
-        print("   Query sent! Drone is overriding flight controls and navigating to target...")
-        time.sleep(15)
+            print(f"   Instruction '{instruction}' written. Waiting for pilot to process...")
+            instr_start = time.time()
+            processed = False
+            while time.time() - instr_start < 30:
+                time.sleep(1)
+                if os.path.exists(instruction_file):
+                    try:
+                        with open(instruction_file, "r") as f:
+                            data = json.load(f)
+                        if data.get("processed", False):
+                            processed = True
+                            break
+                    except Exception:
+                        pass
+            
+            if processed:
+                print(f"   Pilot processed instruction successfully. Sleeping {wait_after_processing}s for drone actions...")
+            else:
+                print("   Warning: Instruction processing timed out!")
+            time.sleep(wait_after_processing)
+
+        print("\n3. Sending Semantic Search Navigation Query: 'fly to where you saw the person'...")
+        send_instruction_and_wait("fly to where you saw the person", wait_after_processing=20)
         
         print("\n4. Sending second query to confirm ReMEmbR memory search: 'where did you see the person'...")
-        query_payload = {
-            "instruction": "where did you see the person",
-            "timestamp": time.time(),
-            "processed": False
-        }
-        with open("/tmp/omnia_user_instruction.json", "w") as f:
-            json.dump(query_payload, f)
-            
-        time.sleep(8)
+        send_instruction_and_wait("where did you see the person", wait_after_processing=8)
+        
         print("   Completed simulation loop. Stopping video recording...")
         
     except Exception as e:

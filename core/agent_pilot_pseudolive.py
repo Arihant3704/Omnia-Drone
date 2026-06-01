@@ -321,9 +321,11 @@ class OmniaPilotPseudoLive:
         logger.info(f"🧠 Reflection & Learning: {reflection_text}")
 
     def navigate_to_local_xy(self, target_x: float, target_y: float):
+        import math
         dx, dy = self.get_local_coordinates()
         diff_x = target_x - dx
         diff_y = target_y - dy
+        distance = math.sqrt(diff_x**2 + diff_y**2)
         
         # Takeoff check
         if self.telemetry.get("altitude", 0.0) < 1.0:
@@ -331,21 +333,27 @@ class OmniaPilotPseudoLive:
             time.sleep(2)
             
         cmds = []
-        if abs(diff_x) > 0.5:
-            if diff_x > 0:
-                cmds.append(f"F{round(diff_x, 2)}")
-            else:
-                cmds.append(f"B{round(abs(diff_x), 2)}")
-        
-        if abs(diff_y) > 0.5:
-            if diff_y > 0:
-                cmds.append(f"R{round(diff_y, 2)}")
-            else:
-                cmds.append(f"L{round(abs(diff_y), 2)}")
+        if distance > 0.5:
+            # Calculate target bearing in degrees clockwise from North
+            target_bearing = math.degrees(math.atan2(diff_y, diff_x)) % 360
+            current_bearing = self.telemetry.get("bearing", 0)
+            
+            # Calculate shortest relative turn angle (-180 to 180)
+            relative_turn = (target_bearing - current_bearing + 180) % 360 - 180
+            
+            # Only turn if difference is significant
+            if abs(relative_turn) > 5.0:
+                if relative_turn > 0:
+                    cmds.append(f"C{round(relative_turn, 1)}")
+                else:
+                    cmds.append(f"A{round(abs(relative_turn), 1)}")
+            
+            # Move forward
+            cmds.append(f"F{round(distance, 2)}")
         
         if cmds:
             cmds_str = " ".join(cmds)
-            logger.info(f"Coordinate navigation to X={target_x}, Y={target_y}. Current X={round(dx, 2)}, Y={round(dy, 2)}. Sending: {cmds_str}")
+            logger.info(f"Coordinate navigation to X={target_x:.2f}, Y={target_y:.2f}. Current X={round(dx, 2)}, Y={round(dy, 2)}. Sending: {cmds_str}")
             self.send_commands(cmds_str)
             return f"Flying to coordinates: {cmds_str}"
         else:
